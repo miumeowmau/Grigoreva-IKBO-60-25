@@ -1,0 +1,9 @@
+# Project virtual environment
+.venv/
+
+# IDE settings
+.idea/
+
+# Python cache
+__pycache__/
+*.py[cod]
