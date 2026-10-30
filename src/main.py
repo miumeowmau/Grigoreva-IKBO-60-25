@@ -98,7 +98,7 @@ def main():
     window = tk.Tk()
     window.title("Эмулятор оболочки - VFS: prac_vfs")
     window.geometry("800x500")
-    window.minsize(600, 400)
+    window.minsize(400, 200)
     create_interface(window)
     window.mainloop()
 
