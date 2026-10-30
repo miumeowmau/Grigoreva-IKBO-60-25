@@ -1,8 +1,12 @@
 """Графический интерфейс эмулятора командной оболочки."""
 
+import shlex
 import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
 
+def parse_command(text):
+    """Разделить введённую команду с учётом кавычек."""
+    return shlex.split(text, posix=True)
 
 def create_interface(window):
     """Добавить область вывода и элементы ввода."""
@@ -21,13 +25,25 @@ def create_interface(window):
     entry.pack(side="left", fill="x", expand=True)
 
     def submit_command(event=None):
-        """Показать введённую строку в области вывода."""
+        """Показать результат разбора введённой строки."""
         command = entry.get()
         if not command.strip():
             return
 
+        try:
+            parts = parse_command(command)
+            if parts:
+                response = (
+                    f"Имя команды: {parts[0]!r}\n"
+                    f"Аргументы: {parts[1:]!r}"
+                )
+            else:
+                response = "Команда не введена."
+        except ValueError as error:
+            response = f"Ошибка разбора: {error}"
+
         output.configure(state="normal")
-        output.insert(tk.END, f"> {command}\n")
+        output.insert(tk.END, f"> {command}\n{response}\n")
         output.configure(state="disabled")
         output.see(tk.END)
         entry.delete(0, tk.END)
