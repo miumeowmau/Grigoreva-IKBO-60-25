@@ -4,9 +4,30 @@ import shlex
 import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
 
+MAX_CD_ARGUMENTS = 1
+
 def parse_command(text):
     """Разделить введённую команду с учётом кавычек."""
     return shlex.split(text, posix=True)
+
+def execute_command(parts):
+    """Проверить команду и сформировать ответ заглушки."""
+    if not parts:
+        return "Команда не введена."
+
+    name = parts[0]
+    arguments = parts[1:]
+
+    if name not in ("ls", "cd"):
+        return f"Ошибка: неизвестная команда «{name}»."
+
+    if name == "cd" and len(arguments) > MAX_CD_ARGUMENTS:
+        return "Ошибка: cd принимает не более одного пути."
+
+    return (
+        f"Команда-заглушка: {name}\n"
+        f"Аргументы: {arguments!r}"
+    )
 
 def create_interface(window):
     """Добавить область вывода и элементы ввода."""
@@ -32,13 +53,7 @@ def create_interface(window):
 
         try:
             parts = parse_command(command)
-            if parts:
-                response = (
-                    f"Имя команды: {parts[0]!r}\n"
-                    f"Аргументы: {parts[1:]!r}"
-                )
-            else:
-                response = "Команда не введена."
+            response = execute_command(parts)
         except ValueError as error:
             response = f"Ошибка разбора: {error}"
 
