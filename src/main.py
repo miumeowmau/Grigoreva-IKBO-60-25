@@ -35,6 +35,32 @@ def execute_command(parts):
     )
     return response, False
 
+def handle_input(window, entry, output):
+    """Обработать ввод и при необходимости закрыть приложение."""
+    command = entry.get()
+    if not command.strip():
+        return
+
+    should_exit = False
+
+    try:
+        parts = parse_command(command)
+        response, should_exit = execute_command(parts)
+    except ValueError as error:
+        response = f"Ошибка разбора: {error}"
+
+    output.configure(state="normal")
+    output.insert(tk.END, f"> {command}\n{response}\n")
+    output.configure(state="disabled")
+    output.see(tk.END)
+    entry.delete(0, tk.END)
+
+    if should_exit:
+        window.destroy()
+        return
+
+    entry.focus_set()
+
 def create_interface(window):
     """Добавить область вывода и элементы ввода."""
     output = ScrolledText(
@@ -52,30 +78,8 @@ def create_interface(window):
     entry.pack(side="left", fill="x", expand=True)
 
     def submit_command(event=None):
-        """Обработать ввод и при необходимости закрыть приложение."""
-        command = entry.get()
-        if not command.strip():
-            return
-
-        should_exit = False
-
-        try:
-            parts = parse_command(command)
-            response, should_exit = execute_command(parts)
-        except ValueError as error:
-            response = f"Ошибка разбора: {error}"
-
-        output.configure(state="normal")
-        output.insert(tk.END, f"> {command}\n{response}\n")
-        output.configure(state="disabled")
-        output.see(tk.END)
-        entry.delete(0, tk.END)
-
-        if should_exit:
-            window.destroy()
-            return
-
-        entry.focus_set()
+        """Передать ввод основному обработчику."""
+        handle_input(window, entry, output)
 
     button = tk.Button(
         input_panel,
@@ -88,7 +92,6 @@ def create_interface(window):
 
     entry.bind("<Return>", submit_command)
     entry.focus_set()
-
 
 def main():
     """Создать окно и запустить обработку событий."""
