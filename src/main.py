@@ -11,23 +11,29 @@ def parse_command(text):
     return shlex.split(text, posix=True)
 
 def execute_command(parts):
-    """Проверить команду и сформировать ответ заглушки."""
+    """Вернуть ответ команды и признак завершения приложения."""
     if not parts:
-        return "Команда не введена."
+        return "Команда не введена.", False
 
     name = parts[0]
     arguments = parts[1:]
 
+    if name == "exit":
+        if arguments:
+            return "Ошибка: exit не принимает аргументы.", False
+        return "Завершение работы.", True
+
     if name not in ("ls", "cd"):
-        return f"Ошибка: неизвестная команда «{name}»."
+        return f"Ошибка: неизвестная команда «{name}».", False
 
     if name == "cd" and len(arguments) > MAX_CD_ARGUMENTS:
-        return "Ошибка: cd принимает не более одного пути."
+        return "Ошибка: cd принимает не более одного пути.", False
 
-    return (
+    response = (
         f"Команда-заглушка: {name}\n"
         f"Аргументы: {arguments!r}"
     )
+    return response, False
 
 def create_interface(window):
     """Добавить область вывода и элементы ввода."""
@@ -46,14 +52,16 @@ def create_interface(window):
     entry.pack(side="left", fill="x", expand=True)
 
     def submit_command(event=None):
-        """Показать результат разбора введённой строки."""
+        """Обработать ввод и при необходимости закрыть приложение."""
         command = entry.get()
         if not command.strip():
             return
 
+        should_exit = False
+
         try:
             parts = parse_command(command)
-            response = execute_command(parts)
+            response, should_exit = execute_command(parts)
         except ValueError as error:
             response = f"Ошибка разбора: {error}"
 
@@ -62,6 +70,11 @@ def create_interface(window):
         output.configure(state="disabled")
         output.see(tk.END)
         entry.delete(0, tk.END)
+
+        if should_exit:
+            window.destroy()
+            return
+
         entry.focus_set()
 
     button = tk.Button(
