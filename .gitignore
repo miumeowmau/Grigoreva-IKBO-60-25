@@ -11,3 +11,8 @@ __pycache__/
 # Emulator journals
 /session.xml
 /logs/
+
+# Локальные файлы визуализации второй практики
+/prac2/plantuml.jar
+/prac2/*.puml
+/prac2/*.svg
