@@ -15,14 +15,20 @@ def check_repository(repository, test_mode, config_dir):
         if url.scheme not in ("http", "https") or not url.hostname:
             raise ValueError("repository: укажи адрес HTTP или HTTPS")
 
-def get_dependencies(config):
-    """Находит прямые зависимости пакета в индексе Ubuntu."""
+def load_repository(config, config_dir):
+    """Читает тестовый граф или индекс Ubuntu."""
     if config["test_mode"]:
-        raise ValueError("На этапе 2 поставь test_mode = false")
+        path = config_dir / config["repository"]
+        with path.open(encoding="utf-8") as file:
+            return json.load(file)
 
     with urlopen(config["repository"], timeout=15) as response:
         archive = response.read()
     index = lzma.decompress(archive).decode("utf-8")
+
+    root = config["package_name"]
+    version = config["version"]
+    repository = {}
 
     for block in index.split("\n\n"):
         fields = {}
@@ -31,19 +37,64 @@ def get_dependencies(config):
             if separator:
                 fields[key] = value
 
-        if fields.get("Package") != config["package_name"]:
+        package = fields.get("Package")
+        if not package or package in repository:
             continue
-        if fields.get("Version") != config["version"]:
+        if package == root and fields.get("Version") != version:
             continue
 
-        dependencies = []
-        for key in ("Pre-Depends", "Depends"):
-            if key in fields:
-                for dependency in fields[key].split(","):
-                    dependencies.append(dependency.strip())
-        return dependencies
+        repository[package] = dependency_names(fields)
 
-    raise ValueError("Пакет указанной версии не найден в индексе")
+    if root not in repository:
+        raise ValueError("Пакет указанной версии не найден в индексе")
+    return repository
+
+
+def dependency_names(fields):
+    """Возвращает имена пакетов из Depends и Pre-Depends."""
+    names = []
+    for key in ("Pre-Depends", "Depends"):
+        value = fields.get(key, "").replace("|", ",")
+        for item in value.split(","):
+            words = item.split()
+            if not words:
+                continue
+
+            name = words[0].split(":")[0]
+            if name not in names:
+                names.append(name)
+    return names
+
+
+def bfs(repository, level, graph, excluded):
+    """Обходит граф по уровням."""
+    if not level:
+        return
+
+    next_level = []
+    for package in level:
+        for dependency in repository.get(package, []):
+            if excluded and excluded in dependency:
+                continue
+
+            graph[package].append(dependency)
+            if dependency not in graph:
+                graph[dependency] = []
+                next_level.append(dependency)
+
+    bfs(repository, next_level, graph, excluded)
+
+
+def build_graph(repository, root, excluded):
+    """Строит граф зависимостей выбранного пакета."""
+    if root not in repository:
+        raise ValueError("Пакет не найден в репозитории")
+    if excluded and excluded in root:
+        return {}
+
+    graph = {root: []}
+    bfs(repository, [root], graph, excluded)
+    return graph
 
 def main():
     """Читает, проверяет и выводит настройки."""
@@ -75,8 +126,13 @@ def main():
             config["repository"], config["test_mode"], config_path.parent
         )
 
-        dependencies = get_dependencies(config)
-        print("\n".join(dependencies) or "Прямых зависимостей нет")
+        repository = load_repository(config, config_path.parent)
+        graph = build_graph(
+            repository, config["package_name"], config["filter"]
+        )
+
+        for package, dependencies in graph.items():
+            print(f"{package}: {', '.join(dependencies)}")
 
     except (OSError, ValueError) as error:
         print(f"Ошибка: {error}")
