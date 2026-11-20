@@ -1,7 +1,8 @@
 import json
+import lzma
+import subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
-import lzma
 from urllib.request import urlopen
 
 
@@ -14,6 +15,7 @@ def check_repository(repository, test_mode, config_dir):
         url = urlsplit(repository)
         if url.scheme not in ("http", "https") or not url.hostname:
             raise ValueError("repository: укажи адрес HTTP или HTTPS")
+
 
 def load_repository(config, config_dir):
     """Читает тестовый граф или индекс Ubuntu."""
@@ -96,40 +98,42 @@ def build_graph(repository, root, excluded):
     bfs(repository, [root], graph, excluded)
     return graph
 
-def visit_package(graph, package, visiting, order, cycles):
-    """Добавляет пакет в список после обхода его зависимостей."""
-    visiting.add(package)
 
-    for dependency in graph[package]:
-        if dependency in visiting:
-            cycles.append((package, dependency))
-        elif dependency not in order:
-            visit_package(graph, dependency, visiting, order, cycles)
+def plantuml_text(graph):
+    """Преобразует вершины и связи графа в текст PlantUML."""
+    lines = ["@startuml", "!pragma layout smetana", "left to right direction"]
+    aliases = {}
 
-    visiting.remove(package)
-    order.append(package)
+    for number, package in enumerate(graph):
+        alias = f"p{number}"
+        aliases[package] = alias
+        lines.append(f'rectangle "{package}" as {alias}')
+
+    for package, dependencies in graph.items():
+        for dependency in dependencies:
+            lines.append(f"{aliases[package]} --> {aliases[dependency]}")
+
+    lines.append("@enduml")
+    return "\n".join(lines)
 
 
-def print_loading_order(graph, root):
-    """Выводит порядок обхода зависимостей и найденные циклы."""
-    order = []
-    cycles = []
+def save_graph(graph, config, config_dir):
+    """Записывает файл PlantUML и создаёт из него SVG."""
+    if not graph:
+        raise ValueError("Фильтр исключил начальный пакет")
 
-    if root in graph:
-        visit_package(graph, root, set(), order, cycles)
+    svg_path = config_dir / config["output_file"]
+    puml_path = svg_path.with_suffix(".puml")
+    puml_path.write_text(plantuml_text(graph), encoding="utf-8")
 
-    for package, dependency in cycles:
-        print(f"Цикл: {package} -> {dependency}")
+    jar_path = config_dir / "plantuml.jar"
+    command = ["java", "-jar", str(jar_path), "-tsvg", str(puml_path)]
+    subprocess.run(command, check=True)
+    print(f"Граф сохранён в {svg_path}")
 
-    dependencies = order[:-1]
-    if dependencies:
-        for package in dependencies:
-            print(package)
-    else:
-        print("Прямых и транзитивных зависимостей нет")
 
 def main():
-    """Читает, проверяет и выводит настройки."""
+    """Читает настройки, строит и сохраняет граф."""
     config_path = Path(__file__).parent.parent / "config.json"
 
     try:
@@ -163,9 +167,8 @@ def main():
             repository, config["package_name"], config["filter"]
         )
 
-        print_loading_order(graph, config["package_name"])
-
-    except (OSError, ValueError) as error:
+        save_graph(graph, config, config_path.parent)
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"Ошибка: {error}")
 
 

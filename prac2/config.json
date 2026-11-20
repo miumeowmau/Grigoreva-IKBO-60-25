@@ -1,6 +1,6 @@
 {
   "package_name": "A",
-  "repository": "test_repo.json",
+  "repository": "tests/test_repo.json",
   "test_mode": true,
   "version": "8.5.0-2ubuntu10",
   "output_file": "graph.svg",
