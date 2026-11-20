@@ -96,6 +96,38 @@ def build_graph(repository, root, excluded):
     bfs(repository, [root], graph, excluded)
     return graph
 
+def visit_package(graph, package, visiting, order, cycles):
+    """Добавляет пакет в список после обхода его зависимостей."""
+    visiting.add(package)
+
+    for dependency in graph[package]:
+        if dependency in visiting:
+            cycles.append((package, dependency))
+        elif dependency not in order:
+            visit_package(graph, dependency, visiting, order, cycles)
+
+    visiting.remove(package)
+    order.append(package)
+
+
+def print_loading_order(graph, root):
+    """Выводит порядок обхода зависимостей и найденные циклы."""
+    order = []
+    cycles = []
+
+    if root in graph:
+        visit_package(graph, root, set(), order, cycles)
+
+    for package, dependency in cycles:
+        print(f"Цикл: {package} -> {dependency}")
+
+    dependencies = order[:-1]
+    if dependencies:
+        for package in dependencies:
+            print(package)
+    else:
+        print("Прямых и транзитивных зависимостей нет")
+
 def main():
     """Читает, проверяет и выводит настройки."""
     config_path = Path(__file__).parent.parent / "config.json"
@@ -131,8 +163,7 @@ def main():
             repository, config["package_name"], config["filter"]
         )
 
-        for package, dependencies in graph.items():
-            print(f"{package}: {', '.join(dependencies)}")
+        print_loading_order(graph, config["package_name"])
 
     except (OSError, ValueError) as error:
         print(f"Ошибка: {error}")
