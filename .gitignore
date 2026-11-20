@@ -1,18 +1,13 @@
-# Project virtual environment
 .venv/
 
-# IDE settings
 .idea/
 
-# Python cache
 __pycache__/
 *.py[cod]
 
-# Emulator journals
 /session.xml
 /logs/
 
-# Локальные файлы визуализации второй практики
 /prac2/plantuml.jar
 /prac2/*.puml
 /prac2/*.svg
