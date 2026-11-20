@@ -1,8 +1,8 @@
 {
   "package_name": "curl",
-  "repository": "https://archive.ubuntu.com/ubuntu/",
+  "repository": "https://archive.ubuntu.com/ubuntu/dists/noble/main/binary-amd64/Packages.xz",
   "test_mode": false,
-  "version": "1.2.3",
+  "version": "8.5.0-2ubuntu10",
   "output_file": "graph.svg",
   "filter": ""
 }

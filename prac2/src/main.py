@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 from urllib.parse import urlsplit
+import lzma
+from urllib.request import urlopen
 
 
 def check_repository(repository, test_mode, config_dir):
@@ -13,6 +15,35 @@ def check_repository(repository, test_mode, config_dir):
         if url.scheme not in ("http", "https") or not url.hostname:
             raise ValueError("repository: укажи адрес HTTP или HTTPS")
 
+def get_dependencies(config):
+    """Находит прямые зависимости пакета в индексе Ubuntu."""
+    if config["test_mode"]:
+        raise ValueError("На этапе 2 поставь test_mode = false")
+
+    with urlopen(config["repository"], timeout=15) as response:
+        archive = response.read()
+    index = lzma.decompress(archive).decode("utf-8")
+
+    for block in index.split("\n\n"):
+        fields = {}
+        for line in block.splitlines():
+            key, separator, value = line.partition(": ")
+            if separator:
+                fields[key] = value
+
+        if fields.get("Package") != config["package_name"]:
+            continue
+        if fields.get("Version") != config["version"]:
+            continue
+
+        dependencies = []
+        for key in ("Pre-Depends", "Depends"):
+            if key in fields:
+                for dependency in fields[key].split(","):
+                    dependencies.append(dependency.strip())
+        return dependencies
+
+    raise ValueError("Пакет указанной версии не найден в индексе")
 
 def main():
     """Читает, проверяет и выводит настройки."""
@@ -44,8 +75,8 @@ def main():
             config["repository"], config["test_mode"], config_path.parent
         )
 
-        for key, value in config.items():
-            print(f"{key} = {value}")
+        dependencies = get_dependencies(config)
+        print("\n".join(dependencies) or "Прямых зависимостей нет")
 
     except (OSError, ValueError) as error:
         print(f"Ошибка: {error}")
