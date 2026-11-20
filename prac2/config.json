@@ -1,0 +1,8 @@
+{
+  "package_name": "curl",
+  "repository": "https://archive.ubuntu.com/ubuntu/",
+  "test_mode": false,
+  "version": "1.2.3",
+  "output_file": "graph.svg",
+  "filter": ""
+}
